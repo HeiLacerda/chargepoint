@@ -31,6 +31,10 @@ public class Cliente extends Usuario {
         System.out.println("Saldo adicionado com sucesso.");
     }
 
+    public List<VeiculoEletrico> getVeiculos() {
+        return veiculos;
+    }
+
     public void descontarSaldo(double valor) throws SaldoInsuficienteException {
 
         if (valor > saldo) {

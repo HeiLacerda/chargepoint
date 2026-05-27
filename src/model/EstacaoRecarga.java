@@ -20,6 +20,10 @@ public class EstacaoRecarga {
         return status;
     }
 
+    public int getId() {
+        return id;
+    }
+
     public void ocuparEstacao() {
         status = StatusEstacao.OCUPADA;
     }
