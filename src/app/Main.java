@@ -4,6 +4,8 @@ import database.BancoDeDadosFake;
 
 import enums.TipoPagamento;
 
+import enums.TipoConector;
+
 import model.*;
 
 import java.util.Scanner;
@@ -30,6 +32,10 @@ public class Main {
             System.out.println("6 - Cadastrar cliente");
             System.out.println("7 - Cadastrar veículo");
             System.out.println("8 - Cadastrar estação");
+            System.out.println("9 - Dirigir veículo");
+            System.out.println("10 - Recarregar estação");
+            System.out.println("11 - Histórico de recargas");
+            System.out.println("12 - Histórico da estação");
             System.out.println("0 - Sair");
 
             System.out.print("\nEscolha: ");
@@ -100,7 +106,20 @@ public class Main {
                         System.out.println(v);
                     }
 
-                    VeiculoEletrico veiculo = clienteSelecionado.getVeiculos().get(0);
+                    System.out.println("\nVEÍCULOS:");
+
+                    for (int i = 0; i < clienteSelecionado.getVeiculos().size(); i++) {
+
+                        System.out.println((i + 1) + " - " + clienteSelecionado.getVeiculos().get(i));
+                    }
+
+                    System.out.print("\nEscolha o veículo: ");
+
+                    int escolhaVeiculo = scanner.nextInt();
+
+                    scanner.nextLine();
+
+                    VeiculoEletrico veiculo = clienteSelecionado.getVeiculos().get(escolhaVeiculo - 1);
 
                     System.out.println("\nESTAÇÕES:");
 
@@ -141,7 +160,12 @@ public class Main {
 
                         SessaoRecarga sessao = new SessaoRecarga(clienteSelecionado, veiculo, estacao);
 
-                        sessao.iniciarRecarga(kwh);
+                        boolean sucesso = sessao.iniciarRecarga(kwh);
+
+                        if (!sucesso) {
+
+                            break;
+                        }
 
                         System.out.println("\n1 - PIX");
 
@@ -293,13 +317,54 @@ public class Main {
 
                     String placa = scanner.nextLine();
 
-                    System.out.print("Capacidade da bateria: ");
+                    System.out.print("Capacidade máxima da bateria: ");
 
                     double bateria = scanner.nextDouble();
 
+                    System.out.print("Bateria inicial atual: ");
+
+                    double bateriaInicial = scanner.nextDouble();
+
                     scanner.nextLine();
 
-                    VeiculoEletrico novoVeiculo = new VeiculoEletrico(modelo, placa, bateria);
+                    System.out.println("\nTipos de conector:");
+
+                    System.out.println("1 - CCS2");
+
+                    System.out.println("2 - CHADEMO");
+
+                    System.out.println("3 - TIPO2");
+
+                    System.out.print("Escolha: ");
+
+                    int tipoEscolhido = scanner.nextInt();
+
+                    scanner.nextLine();
+
+                    TipoConector conector;
+
+                    switch (tipoEscolhido) {
+
+                        case 1:
+
+                            conector = TipoConector.CCS2;
+
+                            break;
+
+                        case 2:
+
+                            conector = TipoConector.CHADEMO;
+
+                            break;
+
+                        default:
+
+                            conector = TipoConector.TIPO2;
+                    }
+
+                    VeiculoEletrico novoVeiculo = new VeiculoEletrico(modelo, placa, bateria, conector);
+
+                    novoVeiculo.carregar(bateriaInicial);
 
                     clienteVeiculo.cadastrarVeiculo(novoVeiculo);
 
@@ -323,13 +388,209 @@ public class Main {
 
                     double potencia = scanner.nextDouble();
 
+                    System.out.print("Energia inicial da estação: ");
+
+                    double energiaInicial = scanner.nextDouble();
+
                     scanner.nextLine();
 
-                    EstacaoRecarga novaEstacao = new EstacaoRecarga(novoId, local, potencia);
+                    System.out.println("\nTipos de conector:");
+
+                    System.out.println("1 - CCS2");
+
+                    System.out.println("2 - CHADEMO");
+
+                    System.out.println("3 - TIPO2");
+
+                    System.out.print("Escolha: ");
+
+                    int escolhaConector = scanner.nextInt();
+
+                    scanner.nextLine();
+
+                    TipoConector conectorEstacao;
+
+                    switch (escolhaConector) {
+
+                        case 1:
+
+                            conectorEstacao = TipoConector.CCS2;
+
+                            break;
+
+                        case 2:
+
+                            conectorEstacao = TipoConector.CHADEMO;
+
+                            break;
+
+                        default:
+
+                            conectorEstacao = TipoConector.TIPO2;
+                    }
+
+                    EstacaoRecarga novaEstacao = new EstacaoRecarga(novoId, local, potencia, conectorEstacao, energiaInicial);
 
                     BancoDeDadosFake.estacoes.add(novaEstacao);
 
                     System.out.println("\nEstação cadastrada com sucesso!");
+
+                    break;
+
+                case 9:
+
+                    System.out.print("\nDigite o email do cliente: ");
+
+                    String emailDrive = scanner.nextLine();
+
+                    Cliente clienteDrive = null;
+
+                    for (Cliente c : BancoDeDadosFake.clientes) {
+
+                        if (c.getEmail().equals(emailDrive)) {
+
+                            clienteDrive = c;
+                            break;
+                        }
+                    }
+
+                    if (clienteDrive == null) {
+
+                        System.out.println("Cliente não encontrado.");
+
+                        break;
+                    }
+
+                    VeiculoEletrico carro = clienteDrive.getVeiculos().get(0);
+
+                    System.out.print("Quantos km deseja dirigir? ");
+
+                    double km = scanner.nextDouble();
+
+                    scanner.nextLine();
+
+                    carro.dirigir(km);
+
+                    System.out.println("Bateria atual: " + carro.getBateriaAtual() + "/" + carro.getCapacidadeBateria() + " kWh");
+
+                    break;
+
+                case 10:
+
+                    System.out.print("\nDigite o ID da estação: ");
+
+                    int idEstacao = scanner.nextInt();
+
+                    System.out.print("Energia adicionada: ");
+
+                    double energia = scanner.nextDouble();
+
+                    scanner.nextLine();
+
+                    for (EstacaoRecarga e : BancoDeDadosFake.estacoes) {
+
+                        if (e.getId() == idEstacao) {
+
+                            e.recarregarEstacao(energia);
+
+                            System.out.println("Energia atual: " + e.getEnergiaDisponivel() + " kWh");
+                        }
+                    }
+
+                    break;
+
+                case 11:
+
+                    System.out.print("\nDigite o email do cliente: ");
+
+                    String emailHistorico = scanner.nextLine();
+
+                    Cliente clienteHistorico = null;
+
+                    for (Cliente c : BancoDeDadosFake.clientes) {
+
+                        if (c.getEmail().equals(emailHistorico)) {
+
+                            clienteHistorico = c;
+                            break;
+                        }
+                    }
+
+                    if (clienteHistorico == null) {
+
+                        System.out.println("Cliente não encontrado.");
+
+                        break;
+                    }
+
+                    System.out.println("\n=== HISTÓRICO DE RECARGAS ===");
+
+                    if (clienteHistorico.getHistoricoRecargas().isEmpty()) {
+
+                        System.out.println("Nenhuma recarga encontrada.");
+
+                    } else {
+
+                        for (SessaoRecarga s : clienteHistorico.getHistoricoRecargas()) {
+
+                            System.out.println("Veículo: " + s.getVeiculo().getModelo());
+
+                            System.out.println("Energia: " + s.getEnergiaConsumida() + " kWh");
+
+                            System.out.println("Valor: R$ " + s.getValorTotal());
+
+                            System.out.println("-------------------");
+                        }
+                    }
+
+                    break;
+
+                case 12:
+
+                    System.out.println("\n=== ESTAÇÕES ===");
+
+                    for (EstacaoRecarga e : BancoDeDadosFake.estacoes) {
+
+                        System.out.println(e);
+                    }
+
+                    System.out.print("\nDigite o ID da estação: ");
+
+                    int idHistorico = scanner.nextInt();
+
+                    scanner.nextLine();
+
+                    EstacaoRecarga estacaoHistorico = null;
+
+                    for (EstacaoRecarga e : BancoDeDadosFake.estacoes) {
+
+                        if (e.getId() == idHistorico) {
+
+                            estacaoHistorico = e;
+                            break;
+                        }
+                    }
+
+                    if (estacaoHistorico == null) {
+
+                        System.out.println("Estação não encontrada.");
+
+                        break;
+                    }
+
+                    System.out.println("\n=== HISTÓRICO DA ESTAÇÃO ===");
+
+                    if (estacaoHistorico.getHistoricoVeiculos().isEmpty()) {
+
+                        System.out.println("Nenhum veículo utilizou esta estação.");
+
+                    } else {
+
+                        for (String historico : estacaoHistorico.getHistoricoVeiculos()) {
+
+                            System.out.println(historico);
+                        }
+                    }
 
                     break;
 

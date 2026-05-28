@@ -11,17 +11,11 @@ public class SessaoRecarga {
     private double energiaConsumida;
     private double valorTotal;
 
-    public SessaoRecarga(
-            Cliente cliente,
-            VeiculoEletrico veiculo,
-            EstacaoRecarga estacao
-    ) throws EstacaoIndisponivelException {
+    public SessaoRecarga(Cliente cliente, VeiculoEletrico veiculo, EstacaoRecarga estacao) throws EstacaoIndisponivelException {
 
         if (estacao.getStatus().toString().equals("OCUPADA")) {
 
-            throw new EstacaoIndisponivelException(
-                    "A estação está ocupada."
-            );
+            throw new EstacaoIndisponivelException("A estação está ocupada.");
         }
 
         this.cliente = cliente;
@@ -31,13 +25,28 @@ public class SessaoRecarga {
         estacao.ocuparEstacao();
     }
 
-    public void iniciarRecarga(double kwh) {
+    public boolean iniciarRecarga(double kwh) {
+
+        if (!estacao.podeCarregar(veiculo, kwh)) {
+
+            return false;
+        }
 
         energiaConsumida = kwh;
 
         valorTotal = energiaConsumida * 2.50;
 
+        veiculo.carregar(kwh);
+
+        estacao.fornecerEnergia(kwh);
+
+        cliente.adicionarHistorico(this);
+
+        estacao.adicionarHistorico(veiculo);
+
         System.out.println("Recarga iniciada...");
+
+        return true;
     }
 
     public void encerrarRecarga() {
@@ -45,11 +54,9 @@ public class SessaoRecarga {
         estacao.liberarEstacao();
 
         System.out.println("Recarga encerrada.");
-        System.out.println("Energia consumida: "
-                + energiaConsumida + " kWh");
+        System.out.println("Energia consumida: " + energiaConsumida + " kWh");
 
-        System.out.println("Valor total: R$ "
-                + valorTotal);
+        System.out.println("Valor total: R$ " + valorTotal);
     }
 
     public double getValorTotal() {
