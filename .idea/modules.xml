@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/chargepoint-manager.iml" filepath="$PROJECT_DIR$/.idea/chargepoint-manager.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/chargepoint.iml" filepath="$PROJECT_DIR$/.idea/chargepoint.iml" />
     </modules>
   </component>
 </project>
