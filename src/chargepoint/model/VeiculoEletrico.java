@@ -6,8 +6,8 @@ public class VeiculoEletrico {
 
     private String modelo;
     private String placa;
-    private double capacidadeBateria; // kWh
-    private double nivelBateria;      // kWh atual
+    private double nivelBateria;
+    private double capacidadeBateria;
     private TipoConector tipoConector;
 
     public VeiculoEletrico(String modelo, String placa, double capacidadeBateria, double nivelBateria, TipoConector tipoConector) {
@@ -18,29 +18,28 @@ public class VeiculoEletrico {
         this.tipoConector = tipoConector;
     }
 
-    public void receberCarga(double energiaRecebida) {
-        double novoNivel = this.nivelBateria + energiaRecebida;
-        if (novoNivel > capacidadeBateria) {
-            this.nivelBateria = capacidadeBateria;
-        } else {
-            this.nivelBateria = novoNivel;
+    // Adiciona exatamente 1 kWh (chamado a cada segundo)
+    public boolean receberUmKwh() {
+        if (nivelBateria < capacidadeBateria) {
+            nivelBateria += 1.0;
+            if (nivelBateria > capacidadeBateria) nivelBateria = capacidadeBateria;
+            return true;
         }
-        System.out.printf("  [VEÍCULO] %s recebeu %.1f kWh. Bateria: %.1f/%.1f kWh (%.0f%%)%n", modelo, energiaRecebida, nivelBateria, capacidadeBateria, getPercentualBateria());
-    }
-
-    public double verificarBateria() {
-        return getPercentualBateria();
+        return false;
     }
 
     public double getPercentualBateria() {
-        return (nivelBateria / capacidadeBateria) * 100;
+        return (nivelBateria / capacidadeBateria) * 100.0;
     }
 
     public double getEnergiaParaEncher() {
         return capacidadeBateria - nivelBateria;
     }
 
-    // Getters
+    public boolean bateriaCheinha() {
+        return nivelBateria >= capacidadeBateria;
+    }
+
     public String getModelo() {
         return modelo;
     }
@@ -49,12 +48,12 @@ public class VeiculoEletrico {
         return placa;
     }
 
-    public double getCapacidadeBateria() {
-        return capacidadeBateria;
-    }
-
     public double getNivelBateria() {
         return nivelBateria;
+    }
+
+    public double getCapacidadeBateria() {
+        return capacidadeBateria;
     }
 
     public TipoConector getTipoConector() {
@@ -63,6 +62,8 @@ public class VeiculoEletrico {
 
     @Override
     public String toString() {
-        return String.format("%s [%s] | Conector: %s | Bateria: %.0f%%", modelo, placa, tipoConector, getPercentualBateria());
+        return String.format("%s [%s] | Conector: %s | Bateria: %.0f/%.0f kWh (%.0f%%)",
+                modelo, placa, tipoConector,
+                nivelBateria, capacidadeBateria, getPercentualBateria());
     }
 }

@@ -34,121 +34,124 @@ public class EstacaoRecarga {
         this.status = StatusEstacao.DISPONIVEL;
         this.filaDeEspera = new LinkedList<>();
         this.historicoRecargas = new ArrayList<>();
-        this.sessaoAtual = null;
     }
 
     public SessaoRecarga iniciarRecarga(VeiculoEletrico veiculo, EstrategiaRecarga estrategia) throws EstacaoOcupadaException, ConectorIncompativelException, EnergiaInsuficienteException {
 
         if (status == StatusEstacao.OCUPADA) {
-            throw new EstacaoOcupadaException("Estação " + id + " está ocupada. Veículo adicionado à fila.");
+            throw new EstacaoOcupadaException("Estação " + id + " ocupada.");
         }
         if (status == StatusEstacao.MANUTENCAO) {
-            throw new EstacaoOcupadaException("Estação " + id + " está em manutenção e não pode ser utilizada.");
+            throw new EstacaoOcupadaException("Estação " + id + " em manutenção.");
         }
-        if (!verificarConector(veiculo)) {
-            throw new ConectorIncompativelException("Conector do veículo (" + veiculo.getTipoConector() + ") é incompatível com a estação (" + tipoConector + ").");
+        if (veiculo.getTipoConector() != tipoConector) {
+            throw new ConectorIncompativelException("Conector " + veiculo.getTipoConector() + " incompatível com " + tipoConector);
         }
-        if (!verificarEnergia(veiculo.getEnergiaParaEncher())) {
-            throw new EnergiaInsuficienteException("Energia insuficiente na estação " + id + ". Disponível: " + String.format("%.1f", energiaDisponivel) + " kWh.");
+        if (energiaDisponivel < veiculo.getEnergiaParaEncher()) {
+            throw new EnergiaInsuficienteException("Energia insuficiente: " + String.format("%.1f", energiaDisponivel) + " kWh disponíveis.");
         }
 
         sessaoAtual = new SessaoRecarga(veiculo, this, estrategia);
         status = StatusEstacao.OCUPADA;
 
-        System.out.printf("%n  [ESTAÇÃO %s] Recarga INICIADA para %s usando %s.%n", id, veiculo.getModelo(), estrategia.getNome());
-
-        double tempoEstimado = estrategia.calcularTempo(veiculo.getEnergiaParaEncher(), potencia);
-        System.out.printf("  [ESTAÇÃO %s] Tempo estimado: %.2f hora(s).%n", id, tempoEstimado);
+        System.out.printf("%n  ||== [%s] Iniciando recarga: %s ==||%n", id, veiculo.getModelo());
+        System.out.printf("  ||  Bateria inicial: %.0f kWh / %.0f kWh (%.0f%%)%n",
+                veiculo.getNivelBateria(), veiculo.getCapacidadeBateria(), veiculo.getPercentualBateria());
+        System.out.printf("  ||  +1 kWh por segundo até completar%n");
+        System.out.println("  ||======================================================");
 
         return sessaoAtual;
     }
 
-    public void encerrarRecarga(double energiaFornecida) {
-        if (sessaoAtual == null || sessaoAtual.getStatusSessao().name().equals("FINALIZADA")) {
-            System.out.println("  [ESTAÇÃO " + id + "] Nenhuma sessão ativa para encerrar.");
-            return;
+    public void executarRecargaTempoReal(VeiculoEletrico veiculo, EstrategiaRecarga estrategia) throws EstacaoOcupadaException, ConectorIncompativelException, EnergiaInsuficienteException {
+
+        SessaoRecarga sessao = iniciarRecarga(veiculo, estrategia);
+
+        System.out.print("  ");
+        while (sessao.tick()) {
+            energiaDisponivel -= 1.0;
+            try {
+                Thread.sleep(1000); // 1 segundo real = 1 kWh
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
         }
+        energiaDisponivel = Math.max(0, energiaDisponivel);
 
-        sessaoAtual.finalizarSessao(energiaFornecida);
-        energiaDisponivel -= energiaFornecida;
         historicoRecargas.add(sessaoAtual);
-
-        System.out.printf("  [ESTAÇÃO %s] Recarga ENCERRADA. Energia restante: %.1f kWh.%n", id, energiaDisponivel);
-
-        sessaoAtual.exibirResumo();
 
         if (deveEntrarManutencao()) {
             entrarManutencao();
         } else {
             status = StatusEstacao.DISPONIVEL;
             sessaoAtual = null;
-            proximoDaFila();
         }
+
+        proximoDaFila(estrategia);
     }
 
     public void adicionarFila(VeiculoEletrico veiculo) {
         filaDeEspera.offer(veiculo);
-        System.out.printf("  [FILA %s] %s adicionado à fila. Posição: %d.%n", id, veiculo.getModelo(), filaDeEspera.size());
+        imprimirFila();
     }
 
-    public void proximoDaFila() {
+    public void proximoDaFila(EstrategiaRecarga estrategia) {
         if (filaDeEspera.isEmpty()) {
-            System.out.printf("  [FILA %s] Fila vazia. Estação aguardando.%n", id);
+            System.out.printf("%n  [FILA %s] Fila vazia. Estação aguardando.%n", id);
             return;
         }
         VeiculoEletrico proximo = filaDeEspera.poll();
-        System.out.printf("%n  [FILA %s] Próximo veículo: %s. Iniciando recarga automática...%n", id, proximo.getModelo());
+        System.out.printf("%n  [FILA %s] ➜ Próximo: %s. Iniciando recarga automática...%n", id, proximo.getModelo());
+        imprimirFila();
         try {
-            iniciarRecarga(proximo, new RecargaRapida());
+            executarRecargaTempoReal(proximo, estrategia);
         } catch (Exception e) {
-            System.out.println("  [FILA] Erro ao iniciar recarga automática: " + e.getMessage());
+            System.out.println("  [ERRO] " + e.getMessage());
         }
     }
 
-    public boolean verificarEnergia(double energiaNecessaria) {
-        return energiaDisponivel >= energiaNecessaria;
+    public void imprimirFila() {
+        System.out.println("\n  ||=== FILA DE ESPERA — Estação " + id + " ===");
+        if (filaDeEspera.isEmpty()) {
+            System.out.println("  ||  (fila vazia)");
+        } else {
+            int pos = 1;
+            for (VeiculoEletrico v : filaDeEspera) {
+                System.out.printf("  ||  %d. %s [%s] — Bateria: %.0f%%%n", pos++, v.getModelo(), v.getPlaca(), v.getPercentualBateria());
+            }
+        }
+        System.out.println("  ||======================================================");
     }
 
     public boolean deveEntrarManutencao() {
-        double percentualRestante = (energiaDisponivel / 500.0) * 100;
-        return percentualRestante <= LIMITE_MANUTENCAO;
+        return (energiaDisponivel / 500.0) * 100 <= LIMITE_MANUTENCAO;
     }
 
     public void entrarManutencao() {
-        this.status = StatusEstacao.MANUTENCAO;
-        System.out.printf("  [MANUTENÇÃO] Estação %s entrou em MANUTENÇÃO. Energia: %.1f kWh.%n", id, energiaDisponivel);
+        status = StatusEstacao.MANUTENCAO;
+        System.out.printf("%n  [MANUTENÇÃO] Estação %s — energia baixa (%.1f kWh restantes).%n", id, energiaDisponivel);
     }
 
-    public void recarregarEstacao(double energiaAdicionada) {
-        this.energiaDisponivel += energiaAdicionada;
-        System.out.printf("  [ESTAÇÃO %s] Energia recarregada: +%.1f kWh. Total: %.1f kWh.%n", id, energiaAdicionada, energiaDisponivel);
-
+    public void recarregarEstacao(double energia) {
+        energiaDisponivel += energia;
         if (status == StatusEstacao.MANUTENCAO || status == StatusEstacao.SEM_ENERGIA) {
-            this.status = StatusEstacao.DISPONIVEL;
-            System.out.printf("  [ESTAÇÃO %s] Status atualizado para DISPONÍVEL.%n", id);
+            status = StatusEstacao.DISPONIVEL;
         }
-    }
-
-    public boolean verificarConector(VeiculoEletrico veiculo) {
-        return this.tipoConector == veiculo.getTipoConector();
+        System.out.printf("  [ESTAÇÃO %s] +%.1f kWh. Total: %.1f kWh. Status: %s%n", id, energia, energiaDisponivel, status);
     }
 
     public void gerarRelatorio() {
+        double totalEnergia = historicoRecargas.stream().mapToDouble(SessaoRecarga::getEnergiaConsumida).sum();
+        double totalReceita = historicoRecargas.stream().mapToDouble(SessaoRecarga::getValorTotal).sum();
         System.out.println("\n  ||======================================================");
         System.out.printf("  || RELATÓRIO — Estação %s%n", id);
         System.out.println("  ||======================================================");
         System.out.printf("  || Localização   : %s%n", localizacao);
-        System.out.printf("  || Potência      : %.1f kW%n", potencia);
         System.out.printf("  || Energia disp. : %.1f kWh%n", energiaDisponivel);
-        System.out.printf("  || Conector      : %s%n", tipoConector);
         System.out.printf("  || Status        : %s%n", status);
-        System.out.printf("  || Fila de espera: %d veículo(s)%n", filaDeEspera.size());
-        System.out.printf("  || Sessões total : %d%n", historicoRecargas.size());
-
-        double totalEnergia = historicoRecargas.stream().mapToDouble(SessaoRecarga::getEnergiaConsumida).sum();
-        double totalReceita = historicoRecargas.stream().mapToDouble(SessaoRecarga::getValorTotal).sum();
-
-        System.out.printf("  || Energia total : %.2f kWh%n", totalEnergia);
+        System.out.printf("  || Sessões       : %d%n", historicoRecargas.size());
+        System.out.printf("  || Energia total : %.1f kWh%n", totalEnergia);
         System.out.printf("  || Receita total : R$ %.2f%n", totalReceita);
         System.out.println("  ||======================================================");
     }
